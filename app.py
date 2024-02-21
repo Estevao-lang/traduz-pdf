@@ -4,21 +4,23 @@ import PyPDF2
 from flask import Flask, render_template, request, send_file
 from googletrans import LANGUAGES, Translator
 from googletrans.gtoken import TokenAcquirer
-from httpx import AsyncClient, URL
+from httpx import AsyncClient
 
 class AsyncTranslator(Translator):
     def __init__(self, service_urls=None, user_agent=None, timeout=None):
         self.service_urls = service_urls or ['https://translate.google.com']
+        self.user_agent = user_agent
         self.client = AsyncClient(
             base_url=self.service_urls[0],
             timeout=timeout,
+            headers={'User-Agent': self.user_agent} if self.user_agent else None
         )
-        self.token_acquirer = TokenAcquirer(client=self.client)  # Pass the client argument
+        self.token_acquirer = TokenAcquirer(client=self.client)
         self._update_params()
         self.raise_exception = True
 
     def _update_params(self):
-        # Implement the logic for updating params here (if needed)
+        # Implemente a lógica para atualizar os parâmetros aqui (se necessário)
         pass
 
 app = Flask(__name__)
@@ -51,7 +53,8 @@ async def traduzir_e_salvar_pdf(caminho_pdf, idioma_destino='en'):
             pdf_texto += pagina.extract_text()
 
     # Tradução do texto extraído
-    texto_traduzido = await traduzir_texto(pdf_texto, idioma_destino)
+    texto_traduzido_coroutine = traduzir_texto(pdf_texto, idioma_destino)
+    texto_traduzido = await texto_traduzido_coroutine
 
     # Criar um novo arquivo PDF com o texto traduzido
     caminho_arquivo_traduzido = caminho_pdf.replace('.pdf', f'_traduzido_{idioma_destino}.pdf')
@@ -62,7 +65,8 @@ async def traduzir_e_salvar_pdf(caminho_pdf, idioma_destino='en'):
     return caminho_arquivo_traduzido
 
 async def processar_traducao(caminho_arquivo_pdf, idioma_destino='en'):
-    caminho_pdf_traduzido = await traduzir_e_salvar_pdf(caminho_arquivo_pdf, idioma_destino)
+    caminho_pdf_traduzido_coroutine = traduzir_e_salvar_pdf(caminho_arquivo_pdf, idioma_destino)
+    caminho_pdf_traduzido = await caminho_pdf_traduzido_coroutine
     return caminho_pdf_traduzido
 
 @app.route('/', methods=['GET', 'POST'])
